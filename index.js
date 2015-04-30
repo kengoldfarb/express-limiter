@@ -1,6 +1,12 @@
 module.exports = function (app, db) {
   return function (opts) {
     var middleware = function (req, res, next) {
+      // If db isn't connected, move along with warning
+      if(!db.connected) {
+        console.log('WARNING: Rate limiting disabled because redis is offline');
+        return next();
+      }
+
       if (opts.whitelist && opts.whitelist(req)) return next()
       opts.lookup = Array.isArray(opts.lookup) ? opts.lookup : [opts.lookup]
 
