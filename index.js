@@ -41,10 +41,14 @@ module.exports = function (app, db) {
 
           if (!opts.skipHeaders) res.set('Retry-After', after)
 
-          res.status(429).send('Rate limit exceeded')
-        })
+          // res.status(429).send('Rate limit exceeded')
+          res.status(429).json({
+            'status': 'failure',
+            'reason': 'rate limit exceeded'
+          });
+        });
 
-      })
+      });
     }
     if (opts.method && opts.path) app[opts.method](opts.path, middleware)
     return middleware
