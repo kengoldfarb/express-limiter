@@ -1,10 +1,14 @@
 module.exports = function (app, db) {
   return function (opts) {
     var middleware = function (req, res, next) {
-      // If db isn't connected, move along with warning
+      // If db isn't connected
       if(!db.connected) {
-        console.log('WARNING: Rate limiting disabled because redis is offline');
-        return next();
+        if(opts.failOnConnectionError) {
+          throw new Error('express-ratelimit connection to redis failed.');
+        } else {
+          console.log('WARNING: Rate limiting disabled because redis is offline');
+          return next();
+        }
       }
 
       if (opts.whitelist && opts.whitelist(req)) return next()
@@ -17,7 +21,8 @@ module.exports = function (app, db) {
       }).join(':')
       var path = opts.path || req.path
       var method = (opts.method || req.method).toLowerCase()
-      var key = 'ratelimit:' + path + ':' + method + ':' + lookups
+      var prefix = opts.prefix ? '-' + opts.prefix : '';
+      var key = prefix + 'ratelimit:' + path + ':' + method + ':' + lookups
       db.get(key, function (err, limit) {
         if (err && opts.ignoreErrors) return next()
         var now = Date.now()
@@ -47,11 +52,13 @@ module.exports = function (app, db) {
 
           if (!opts.skipHeaders) res.set('Retry-After', after)
 
-          // res.status(429).send('Rate limit exceeded')
-          res.status(429).json({
-            'status': 'failure',
-            'reason': 'rate limit exceeded'
-          });
+          if(opts.jsonResponse) {
+            return res.status(429).json(opts.jsonResponse);
+          } else if(opts.textResponse) {
+            return res.status(429).send(opts.textResponse);
+          } else {
+            return res.status(429).send('Rate limit exceeded');
+          }
         });
 
       });
